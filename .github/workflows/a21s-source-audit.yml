@@ -1,0 +1,66 @@
+name: A21s Linux 5.10 source audit (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout audit scripts
+        uses: actions/checkout@v4
+        with:
+          path: audit-kit
+          persist-credentials: false
+
+      - name: Fetch A12s 5.10 source at supplied commit
+        uses: actions/checkout@v4
+        with:
+          repository: rsuntk/android_kernel_samsung_a12s-5.10
+          ref: 8e38b803532cf77a80e4a6b2f5e92be7612edb0f
+          path: src-a12s
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            arch/arm64/boot/dts
+            arch/arm64/configs
+            drivers/video/fbdev/exynos
+            drivers/input/touchscreen
+            drivers/sensors
+            firmware
+          sparse-checkout-cone-mode: true
+
+      - name: Fetch A21s Atlas 4.19 source
+        uses: actions/checkout@v4
+        with:
+          repository: samsungexynos850/atlas
+          ref: master
+          path: src-a21s
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            arch/arm64/boot/dts
+            arch/arm64/configs
+            drivers/video/fbdev/exynos
+            drivers/input/touchscreen
+            drivers/sensors
+            firmware
+          sparse-checkout-cone-mode: true
+
+      - name: Compare display, touch and device-tree source references
+        run: |
+          python3 audit-kit/tools/source_audit.py \
+            --a12s src-a12s --a21s src-a21s --output source-audit-output
+
+      - name: Upload report (never upload flashable images)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: A21s-5.10-source-audit
+          path: source-audit-output/
+          if-no-files-found: warn
+          
